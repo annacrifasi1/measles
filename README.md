@@ -11,12 +11,11 @@ This project analyzes global measles incidence trends from **2015–2024** and i
 Obtained from TidyTuesday (WHO-sourced):  
 🔗 https://github.com/rfordatascience/tidytuesday/tree/main/data/2025/2025-06-24  
 
-This repository includes a clear example of a README and data documentation.  
 The file used in this project:  
 - `cases_year.csv`  
 
 ### **Vaccination Coverage Data (WUENIC)**  
-Queried and downloaded from WHO Immunization Data (downloaded **11/11/2025**):  
+Queried from WHO Immunization Data (downloaded **11/11/2025**):  
 🔗 https://immunizationdata.who.int/global/wiise-detail-page/measles-vaccination-coverage?GROUP=WHO_REGIONS+Countries&ANTIGEN=&YEAR=&CODE=
 
 Query settings used:
@@ -44,9 +43,3 @@ install.packages(c(
 ))
 
 
-### Install Required Packages
-```r
-install.packages(c(
-  "tidyverse", "readr", "readxl", "janitor",
-  "countrycode", "scales", "broom", "glue", "stringr"
-))
