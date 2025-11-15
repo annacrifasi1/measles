@@ -28,18 +28,34 @@ Data dictionary and other information about the data can be found in the sheets 
 
 ---
 
-## Installation / Build Instructions
+## Installation and Build Instructions
 
-### Requirements
-- R and RStudio  
-- `DV_Measles_Final.Rmd`  
-- `measles_vaccination_coverage_2015_24.xlsx`  
+### 1. Software Requirements
+- **R** (version 4.0 or later)
+- **RStudio** (recommended for knitting the R Markdown file)
+- The following project files:
+  - `DV_Measles_Final.Rmd`
+  - `measles_vaccination_coverage_2015_24.xlsx`
 
-### Install Required R Packages
+---
+
+### 2. Install Required R Packages
+Before running the analysis, install all necessary packages:
+
 ```r
 install.packages(c(
   "tidyverse", "readr", "readxl", "janitor",
   "countrycode", "scales", "broom", "glue", "stringr"
 ))
+```
+### 3. Run the Project
+
+1. Download or clone this repository to your local machine.  
+2. Ensure that all project files are stored in the same working directory.  
+3. Open `DV_Measles_Final.Rmd` in **RStudio**.  
+4. Confirm that the vaccination file  
+   `measles_vaccination_coverage_2015_24.xlsx`  
+   is present in the directory, as the script reads it directly.  
+5. When running the code, all visualizations will automatically display in the RStudio Plots pane. If you wish to save the figures as standalone PNG files, the code includes optional `ggsave()` lines (currently commented out). 
 
 
