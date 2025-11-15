@@ -26,6 +26,20 @@ Query settings used:
 The exact Excel file used in this analysis (`measles_vaccination_coverage_2015_24.xlsx`) is included in this repository.
 Data dictionary and other information about the data can be found in the sheets of the Excel file.
 
+## Data Cleaning
+- **Measles incidence data (TidyTuesday/WHO):**
+  - Converted year values to numeric and restricted the dataset to 2015–2024.
+  - Mapped WHO region codes (AFRO, AMRO, etc.) to full region names.
+
+- **Vaccination coverage data (WUENIC):**
+  - Standardized country names, including resolving encoding inconsistencies  
+    (e.g., *Côte d’Ivoire* → *Cote d'Ivoire*).
+  - Merged WHO region information into the vaccination dataset.
+  - Reshaped coverage data to wide format to compute **MCV1–MCV2 dropout**.
+
+- **Merged dataset:**
+  - Combined incidence, vaccination, and dropout datasets by matching on `country` and `year`.
+  - Created additional derived fields (e.g., MCV2 coverage groups, incidence caps) used for visualization clarity.
 ---
 
 ## Installation and Build Instructions
