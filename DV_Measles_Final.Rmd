@@ -1,0 +1,481 @@
+---
+title: "Measles Incidence & Vaccination Coverage (2015–2024)"
+output:
+  word_document:
+    toc: true
+    toc_depth: 2
+  html_document:
+    toc: true
+    toc_depth: 2
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, message = FALSE, warning = FALSE,
+  fig.width = 8, fig.height = 5, dpi = 300
+)
+```
+
+# Libraries
+
+```{r libraries}
+library(tidyverse)
+library(readr)
+library(readxl)
+library(janitor)
+library(countrycode)
+library(scales)
+library(broom)
+library(glue)
+library(stringr)
+library(ggrepel)
+```
+
+# 1) Load & prepare measles incidence (2015–2024)
+
+```{r measles-incidence}
+url_cases <- "https://raw.githubusercontent.com/rfordatascience/tidytuesday/refs/heads/main/data/2025/2025-06-24/cases_year.csv"
+measles <- read_csv(url_cases, show_col_types = FALSE)
+
+years_range <- 2015:2024
+
+region_names <- c(
+  "AFRO"  = "Africa",
+  "AMRO"  = "Americas",
+  "EMRO"  = "Eastern Mediterranean",
+  "EURO"  = "Europe",
+  "SEARO" = "South-East Asia",
+  "WPRO"  = "Western Pacific"
+)
+
+measles_clean <- measles %>%
+  mutate(year = as.numeric(year)) %>%
+  filter(year %in% years_range) %>%
+  mutate(region_full = region_names[region]) %>%
+  ungroup()
+```
+
+# 2) Incidence visuals
+
+## A. Global mean incidence per year
+
+
+```{r orig-global-trend}
+global_trend <- measles_clean %>%
+  group_by(year) %>%
+  summarise(mean_rate_per_million = mean(measles_incidence_rate_per_1000000_total_population, na.rm = TRUE), .groups="drop")
+
+overall_mean <- mean(global_trend$mean_rate_per_million, na.rm = TRUE)
+y_max <- max(global_trend$mean_rate_per_million, na.rm = TRUE)
+
+p_global <- ggplot(global_trend, aes(x = year, y = mean_rate_per_million)) +
+  geom_line(linewidth = 1, color = "#D95F02") +
+  geom_point(size = 2, color = "#D95F02") +
+  
+  # Mean line
+  geom_hline(
+    yintercept = overall_mean,
+    linetype = "dashed",
+    color = "#9EC0D3"
+  ) +
+  geom_text_repel(
+    data = data.frame(
+      year = max(global_trend$year),
+      mean_rate_per_million = overall_mean
+    ),
+    aes(
+      x = year,
+      y = mean_rate_per_million,
+      label = paste0("Mean = ", round(overall_mean, 1))
+    ),
+    nudge_x = 0.5,
+    nudge_y = 3,
+    box.padding = 0.4,
+    point.padding = 0.3,
+    size = 3,
+    color = "gray4" 
+  ) +
+  
+  scale_x_continuous(breaks = years_range, labels = years_range) +
+  scale_y_continuous(
+    limits = c(0, y_max * 1.25),
+    breaks = seq(0, y_max * 1.25, by = 20),
+    labels = scales::comma
+  ) +
+  
+  labs(
+    title = "Annual Global Measles Incidence (2015–2024)",
+    x = "",
+    y = "Incidence per million"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_global
+# ggsave("01_global_incidence.png", p_global, width = 8, height = 5, dpi = 300)
+```
+
+## B. Regional mean incidence (horizontal bars)
+
+```{r orig-region-bars, fig.width=10}
+region_total <- measles_clean %>%
+  group_by(region_full) %>%
+  summarise(
+    total_cases = sum(measles_total, na.rm = TRUE),
+    mean_incidence_per_million = mean(measles_incidence_rate_per_1000000_total_population, na.rm = TRUE),
+    .groups="drop"
+  ) %>%
+  arrange(desc(mean_incidence_per_million))
+
+p_region_bar <- ggplot(region_total, aes(x = reorder(region_full, mean_incidence_per_million),
+                                         y = mean_incidence_per_million)) +
+  geom_col(show.legend = FALSE, fill = "#B7D1DD") +
+  geom_text(aes(label = sprintf("%.1f", mean_incidence_per_million)),
+            hjust = -0.25, size = 3.3, color = "black", fontface = "bold") +
+  coord_flip() +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(title = "Overall Measles Incidence per Million by WHO Region (2015–2024)",
+       x = "", y = "") +
+  theme_minimal(base_size = 13) +
+  theme(panel.grid = element_blank(),  axis.text.x = element_blank())
+
+p_region_bar
+#ggsave("02_region_incidence_bars.png", p_region_bar, width = 8, height = 5, dpi = 300)
+```
+
+## C. Regional heatmap by year
+
+```{r orig-region-heatmap}
+region_trend <- measles_clean %>%
+  group_by(region_full, year) %>%
+  summarise(mean_incidence_per_million = mean(measles_incidence_rate_per_1000000_total_population, na.rm = TRUE), .groups="drop") %>%
+  mutate(mean_incidence_per_million_plot = mean_incidence_per_million)
+
+p_region_heat <- ggplot(region_trend, aes(x = factor(year), y = region_full, fill = mean_incidence_per_million_plot)) +
+  geom_tile(color = "white") +
+
+   scale_fill_gradient(
+    low = "white",   
+    high = "#D55E00", 
+    name = "Per million",
+    limits = c(0, max(region_trend$mean_incidence_per_million_plot, na.rm = TRUE))
+  ) +
+  
+  labs(title = "Measles Incidence by WHO Region and Year (2015-2024)",
+       x = "", y = "") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5, size = 16))
+
+p_region_heat
+#ggsave("03_region_heatmap.png", p_region_heat, width = 8, height = 5, dpi = 300)
+```
+
+## D. Top 10 countries by mean incidence + heatmap
+
+```{r orig-top10}
+country_total <- measles_clean %>%
+  group_by(country) %>%
+  summarise(
+    total_cases = sum(measles_total, na.rm = TRUE),
+    mean_incidence_per_million = mean(measles_incidence_rate_per_1000000_total_population, na.rm = TRUE),
+    .groups="drop"
+  ) %>%
+  arrange(desc(mean_incidence_per_million)) %>%
+  slice_head(n = 10)
+
+p_top10_bar <- ggplot(country_total, aes(x = reorder(country, mean_incidence_per_million),
+                                         y = mean_incidence_per_million)) +
+  geom_col(fill = "#6C9CBF") +
+  geom_text(aes(label = round(mean_incidence_per_million, 1)),
+            hjust = -0.25, size = 3.2, color = "black") +
+  coord_flip() +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+  labs(title = "Top 10 Countries by Mean Measles Incidence per Million (2015–2024)",
+       x = "", y = "") +
+  theme_minimal(base_size = 13) +
+  theme(panel.grid = element_blank(), axis.text.x = element_blank())
+p_top10_bar
+
+# ggsave("04_top10_countries_bar.png", p_top10_bar, width = 8, height = 5, dpi = 300)
+
+country_trend <- measles_clean %>%
+  filter(country %in% country_total$country) %>%
+  group_by(country, year) %>%
+  summarise(mean_incidence_per_million = mean(measles_incidence_rate_per_1000000_total_population, na.rm = TRUE), .groups="drop") %>%
+  mutate(country = factor(country, levels = rev(country_total$country)),
+         mean_incidence_plot = mean_incidence_per_million,
+         mean_incidence_capped = pmin(mean_incidence_plot, 1500))
+
+p_top10_heat <- ggplot(country_trend,
+       aes(x = factor(year), y = country, fill = mean_incidence_capped)) +
+  geom_tile(color = "white") +
+
+  # Label only the NA tiles
+  geom_text(aes(label = ifelse(is.na(mean_incidence_plot), "N/A", "")),
+            size = 2.8, color = "black") +
+
+  scale_fill_gradient(low = "white", high = "#009E73",
+                      limits = c(0, 1500),
+                      breaks = c(0, 500, 1000, 1500),
+                      labels = c("0", "500", "1000", "≥1500"),
+                      name = "Per million",
+                      na.value = "white") +
+  labs(title = "Measles Incidence by Year — Top 10 Countries (2015–2024)",
+       x = "", y = "") +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        panel.grid = element_blank())
+
+p_top10_heat
+#ggsave("05_top10_countries_heatmap.png", p_top10_heat, width = 8, height = 5, dpi = 300)
+```
+
+# 3) Vaccination coverage (WUENIC), countries & WHO regions
+
+```{r vaccination-load}
+coverage_source <- "WUENIC"
+
+vax_raw <- read_excel("measles_vaccination_coverage_2015_24.xlsx", sheet = 1) %>%
+  clean_names()
+
+vax_clean <- vax_raw %>%
+  filter(
+    antigen %in% c("MCV1", "MCV2"),
+    year %in% years_range,
+    toupper(coverage_category) == toupper(coverage_source)
+  ) %>%
+  mutate(
+    year = as.numeric(year),
+    coverage_value = as.numeric(coverage),
+    country = name,
+    coverage_value = pmin(coverage_value, 99)
+  ) %>%
+  select(country, year, antigen, coverage_value)
+
+# Fix country name encodings and standardize for joining
+vax_clean <- vax_clean %>%
+  mutate(
+    country_std = countrycode(
+      country, "country.name", "country.name",
+      custom_match = c("Côte d’Ivoire" = "Cote d'Ivoire")
+    ),
+    country = coalesce(country_std, country)
+  )
+
+# Extract WHO region mapping from incidence dataset
+who_regions <- measles_clean %>%
+  select(country, region_full) %>%
+  distinct()
+
+# Join WHO regions to vaccination data
+vax_clean <- vax_clean %>%
+  left_join(who_regions, by = "country")
+```
+
+# 4) Dropout (MCV1 − MCV2) and summaries
+
+```{r dropout}
+vax_wide <- vax_clean %>%
+  select(country, year, region_full, antigen, coverage_value) %>%
+  pivot_wider(names_from = antigen, values_from = coverage_value)
+
+vax_dropout <- vax_wide %>%
+  mutate(dropout = pmax(MCV1 - MCV2, 0))
+
+dropout_region <- vax_dropout %>%
+  filter(!is.na(region_full)) %>%   # remove NA region countries
+  group_by(region_full, year) %>%
+  summarise(mean_dropout = mean(dropout, na.rm = TRUE), .groups = "drop")
+
+dropout_global <- vax_dropout %>%
+  group_by(year) %>%
+  summarise(mean_dropout = mean(dropout, na.rm = TRUE), .groups = "drop")
+
+```
+
+## Dropout over time by region (line plot)
+
+```{r dropout-region-facet, fig.width=10}
+
+p_dropout_facets <- ggplot(dropout_region, aes(x = year, y = mean_dropout)) +
+  geom_line(color = "#6C9CBF", linewidth = 1.1) +
+  geom_point(color = "#6C9CBF", size = 2) +
+  facet_wrap(~ region_full, ncol = 3) +
+
+  scale_x_continuous(
+    breaks = years_range,
+    labels = paste0("'", substr(years_range, 3, 4))
+  ) +
+  scale_y_continuous(
+    limits = c(0, NA),
+    breaks = seq(0, 30, by = 5),
+    labels = ~ paste0(.x)
+  ) +
+  labs(
+    title = "MCV1–MCV2 Dropout by WHO Region (2015–2024)",
+    x = "",
+    y = "Dropout (%)"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title      = element_text(hjust = 0.5, size = 16),
+    strip.text      = element_text(face = "bold", size = 14),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.y = element_line(color = "gray85", linewidth = 0.3),
+    axis.text.x     = element_text(hjust = 0.5)
+  )
+
+p_dropout_facets
+#ggsave("06_dropout_region_trend.png", p_dropout_facets, width = 8, height = 5, dpi = 300)
+```
+
+# 5) Merge incidence + vaccination + dropout
+
+```{r merge-master}
+
+measles_vax_full <- measles_clean %>%
+  left_join(
+    vax_country %>% filter(antigen == "MCV2") %>% 
+      select(country, year, MCV2 = coverage_value),
+    by = c("country", "year")
+  ) %>%
+  left_join(
+    vax_country %>% filter(antigen == "MCV1") %>% 
+      select(country, year, MCV1 = coverage_value),
+    by = c("country", "year")
+  ) %>%
+  left_join(
+    vax_dropout %>% select(country, year, dropout),
+    by = c("country", "year")
+  ) %>%
+  mutate(
+    # Ensure WHO region exists
+    region_full = as.factor(region_full),
+
+  )
+```
+
+# 6) Incidence vs vaccination visuals
+
+## A. Incidence vs MCV2 coverage
+
+```{r viz-scatter-mcv2}
+# Create MCV2 coverage groups and compute mean incidence
+incidence_binned <- measles_vax_full %>%
+  mutate(
+    MCV2_group = cut(
+      MCV2,
+      breaks = c(0,20,40,60,80,100),
+      labels = c("0–20%","20–40%","40–60%","60–80%","80–100%"),
+      include.lowest = TRUE
+    )
+  ) %>%
+  filter(!is.na(MCV2_group)) %>%          # remove NA coverage rows
+  group_by(MCV2_group) %>%
+  summarise(
+    mean_incidence = mean(measles_incidence_rate_per_1000000_total_population, na.rm=TRUE),
+    .groups = "drop"
+  )
+
+p_mcv2_binned <- ggplot(incidence_binned, aes(MCV2_group, mean_incidence)) +
+  geom_col(fill = "#C77F49") +
+  geom_text(aes(label = sprintf("%.1f", mean_incidence)),
+            vjust = -0.4, size = 3.5, color = "black", fontface = "bold") +
+  labs(
+    title = "Mean Measles Incidence by MCV2 Coverage Level (2015–2024)",
+    x = "MCV2 Coverage",
+    y = "Per million"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),
+    panel.grid = element_blank(),         
+    axis.text.y = element_blank(),        
+    axis.ticks.y = element_blank(),       
+    axis.title.x = element_text(margin = margin(t = 12)),
+    plot.margin = margin(10, 10, 10, 10)
+  )
+
+p_mcv2_binned
+#ggsave("07_incidence_vs_mcv2.png", scatter_mcv2, width = 8, height = 5, dpi = 300)
+```
+
+
+## B. Overlaid regional trends: incidence vs MCV2
+
+```{r viz-regional-trends, fig.height=6}
+# 1. Compute regional means
+region_trends_overlay <- measles_vax_full %>%
+  group_by(region_full, year) %>%
+  summarise(
+    mean_inc = mean(measles_incidence_rate_per_1000000_total_population, na.rm = TRUE),
+    mean_cov = mean(MCV2, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# 2. Scale MCV2 so it can be overlaid on the same plot as incidence
+scale_factor <- max(region_trends_overlay$mean_inc, na.rm = TRUE) /
+                max(region_trends_overlay$mean_cov, na.rm = TRUE)
+
+region_trends_overlay <- region_trends_overlay %>%
+  mutate(cov_scaled = mean_cov * scale_factor)
+
+# 3. Short year labels
+short_years <- paste0("'", substr(years_range, 3, 4))
+
+# 4. Final overlay plot
+col_inc <- "#D55E00"
+col_cov <- "#009E73"
+
+p_overlay <- ggplot(region_trends_overlay, aes(x = year)) +
+  geom_line(aes(y = mean_inc, color = "Incidence"), linewidth = 1) +
+  geom_line(aes(y = cov_scaled, color = "MCV2 Coverage"),
+            linewidth = 1, linetype = "dashed") +
+  facet_wrap(~ region_full, ncol = 2) +
+  scale_x_continuous(breaks = years_range, labels = short_years) +
+  scale_y_continuous(
+    name = "Incidence per Million",
+    sec.axis = sec_axis(~ . / scale_factor, name = "MCV2 Coverage (%)")
+  ) +
+  scale_color_manual(
+    values = c("Incidence" = col_inc, "MCV2 Coverage" = col_cov)
+  ) +
+  labs(
+    title = "Regional Trends: Measles Incidence vs MCV2 Coverage (2015–2024)",
+    x = "", color = ""
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "gray85", linewidth = 0.5),
+    panel.grid.minor   = element_blank(),
+    panel.spacing = unit(1.2, "lines"),
+    axis.title.y.left  = element_text(color = col_inc, margin = margin(r = 12)),
+    axis.title.y.right = element_text(color = col_cov, margin = margin(l = 12)),
+    axis.text.x = element_text(size = 10, margin = margin(t = 4)),
+    legend.position = "none"
+  )
+
+p_overlay
+# ggsave("08_regional_incidence_vs_coverage.png", p_overlay, width = 9, height = 6, dpi = 300)
+```
+
+# Outputs
+
+-   01_global_incidence.png\
+-   02_region_incidence_bars.png\
+-   03_region_heatmap.png\
+-   04_top10_countries_bar.png\
+-   05_top10_countries_heatmap.png\
+-   06_dropout_region_trend.png\
+-   07_incidence_vs_mcv2.png\
+-   08_regional_incidence_vs_coverage.png\
