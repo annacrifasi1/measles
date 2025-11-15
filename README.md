@@ -11,8 +11,7 @@ This project analyzes global measles incidence trends from **2015–2024** and i
 Obtained from TidyTuesday (WHO-sourced):  
 🔗 https://github.com/rfordatascience/tidytuesday/tree/main/data/2025/2025-06-24  
 
-The file used in this project:  
-- `cases_year.csv`  
+The file used in this project: `cases_year.csv`. Follow the above link to see the data dictionary.
 
 ### **Vaccination Coverage Data (WUENIC)**  
 Queried from WHO Immunization Data (downloaded **11/11/2025**):  
@@ -25,6 +24,7 @@ Query settings used:
 - **Years:** 2015–2024  
 
 The exact Excel file used in this analysis (`measles_vaccination_coverage_2015_24.xlsx`) is included in this repository.
+Data dictionary and other information about the data can be found in the sheets of the Excel file.
 
 ---
 
