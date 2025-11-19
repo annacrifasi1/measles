@@ -146,7 +146,7 @@ p_region_bar <- ggplot(region_total, aes(x = reorder(region_full, mean_incidence
   theme(panel.grid = element_blank(),  axis.text.x = element_blank())
 
 p_region_bar
-#ggsave("02_region_incidence_bars.png", p_region_bar, width = 8, height = 5, dpi = 300)
+# ggsave("02_region_incidence_bars.png", p_region_bar, width = 8, height = 5, dpi = 300)
 ```
 
 ## C. Regional heatmap by year
@@ -174,7 +174,7 @@ p_region_heat <- ggplot(region_trend, aes(x = factor(year), y = region_full, fil
         plot.title = element_text(hjust = 0.5, size = 16))
 
 p_region_heat
-#ggsave("03_region_heatmap.png", p_region_heat, width = 8, height = 5, dpi = 300)
+# ggsave("03_region_heatmap.png", p_region_heat, width = 8, height = 5, dpi = 300)
 ```
 
 ## D. Top 10 countries by mean incidence + heatmap
@@ -201,8 +201,8 @@ p_top10_bar <- ggplot(country_total, aes(x = reorder(country, mean_incidence_per
        x = "", y = "") +
   theme_minimal(base_size = 13) +
   theme(panel.grid = element_blank(), axis.text.x = element_blank())
-p_top10_bar
 
+p_top10_bar
 # ggsave("04_top10_countries_bar.png", p_top10_bar, width = 8, height = 5, dpi = 300)
 
 country_trend <- measles_clean %>%
@@ -234,10 +234,89 @@ p_top10_heat <- ggplot(country_trend,
         panel.grid = element_blank())
 
 p_top10_heat
-#ggsave("05_top10_countries_heatmap.png", p_top10_heat, width = 8, height = 5, dpi = 300)
+# ggsave("05_top10_countries_heatmap.png", p_top10_heat, width = 8, height = 5, dpi = 300)
+```
+# 3) Lab confirmed case ratio
+```{r lab_confirmation, echo=FALSE}
+
+# Ensure lab_ratio exists and add short region names
+measles_clean <- measles_clean %>%
+  mutate(
+    lab_ratio = ifelse(measles_total > 0, measles_lab_confirmed / measles_total, NA),
+    region_full = region_names[region]
+  )
+
+# Mean lab ratio by region
+lab_ratio_region <- measles_clean %>%
+  group_by(region_full) %>%
+  summarise(
+    mean_lab_ratio = mean(lab_ratio, na.rm = TRUE),
+    total_cases = sum(measles_total, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(mean_lab_ratio))
+
+# Vertical bar plot with short region names
+lab_ratio1 <- ggplot(lab_ratio_region, aes(x = reorder(region_full, mean_lab_ratio), y = mean_lab_ratio, fill = region_full)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = paste0(sprintf("%.1f", mean_lab_ratio * 100), "%")),
+            vjust = -0.5, color = "black", size = 3.5) +
+  scale_x_discrete(labels = function(x) gsub(" ", "\n", x)) + 
+  scale_y_continuous(labels = percent_format(accuracy = 1),
+                     expand = expansion(mult = c(0, 0.1))) +
+  labs(
+    title = "Lab-Confirmed / Total Measles Ratio by WHO Region (2015–2024)",
+    x = "",
+    y = ""
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 15),
+    axis.text.y = element_blank()
+  )
+
+lab_ratio1
+# ggsave("06_labregion_measles_plot.png", plot = lab_ratio1, width = 8, height = 5, dpi = 300)
+
+# Bottom 10 countries
+bottom10_countries <- measles_clean %>%
+  group_by(country, region_full) %>%
+  summarise(
+    mean_lab_ratio = mean(lab_ratio, na.rm = TRUE),
+    total_cases = sum(measles_total, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(mean_lab_ratio) %>%
+  slice_head(n = 10)  # bottom 10 only
+
+# Horizontal bar plot
+lab_ratio2 <- ggplot(bottom10_countries, aes(x = reorder(country, mean_lab_ratio), y = mean_lab_ratio, fill = region_full)) +
+  geom_col() +
+  geom_text(aes(label = paste0(round(mean_lab_ratio * 100, 1), "%")),
+            hjust = -0.1, color = "black", size = 3.5) + 
+  scale_y_continuous(labels = percent_format(accuracy = 1),
+                     expand = expansion(mult = c(0, 0.2))) +
+  labs(
+    title = "Lab-Confirmed / Total Measles Ratio, Lowest 10 Countries (2015–2024)",
+    x = "",
+    y = "",
+    fill = "Region"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 15),
+    axis.text.x = element_blank()
+  ) +
+  coord_flip() 
+
+lab_ratio2
+# ggsave("07_labcountry_measles_plot.png", plot = lab_ratio2, width = 8, height = 5, dpi = 300)
 ```
 
-# 3) Vaccination coverage (WUENIC), countries & WHO regions
+
+# 4) Vaccination coverage (WUENIC), countries & WHO regions
 
 ```{r vaccination-load}
 coverage_source <- "WUENIC"
@@ -279,7 +358,7 @@ vax_clean <- vax_clean %>%
   left_join(who_regions, by = "country")
 ```
 
-# 4) Dropout (MCV1 − MCV2) and summaries
+# 5) Dropout (MCV1 − MCV2) and summaries
 
 ```{r dropout}
 vax_wide <- vax_clean %>%
@@ -335,21 +414,21 @@ p_dropout_facets <- ggplot(dropout_region, aes(x = year, y = mean_dropout)) +
   )
 
 p_dropout_facets
-#ggsave("06_dropout_region_trend.png", p_dropout_facets, width = 8, height = 5, dpi = 300)
+# ggsave("08_dropout_region_trend.png", p_dropout_facets, width = 8, height = 5, dpi = 300)
 ```
 
-# 5) Merge incidence + vaccination + dropout
+# 6) Merge incidence + vaccination + dropout
 
 ```{r merge-master}
 
 measles_vax_full <- measles_clean %>%
   left_join(
-    vax_country %>% filter(antigen == "MCV2") %>% 
+    vax_clean %>% filter(antigen == "MCV2") %>% 
       select(country, year, MCV2 = coverage_value),
     by = c("country", "year")
   ) %>%
   left_join(
-    vax_country %>% filter(antigen == "MCV1") %>% 
+    vax_clean %>% filter(antigen == "MCV1") %>% 
       select(country, year, MCV1 = coverage_value),
     by = c("country", "year")
   ) %>%
@@ -362,9 +441,10 @@ measles_vax_full <- measles_clean %>%
     region_full = as.factor(region_full),
 
   )
+
 ```
 
-# 6) Incidence vs vaccination visuals
+# 7) Incidence vs vaccination visuals
 
 ## A. Incidence vs MCV2 coverage
 
@@ -406,7 +486,7 @@ p_mcv2_binned <- ggplot(incidence_binned, aes(MCV2_group, mean_incidence)) +
   )
 
 p_mcv2_binned
-#ggsave("07_incidence_vs_mcv2.png", scatter_mcv2, width = 8, height = 5, dpi = 300)
+# ggsave("09_incidence_vs_mcv2.png", p_mcv2_binned, width = 8, height = 5, dpi = 300)
 ```
 
 
@@ -466,7 +546,7 @@ p_overlay <- ggplot(region_trends_overlay, aes(x = year)) +
   )
 
 p_overlay
-# ggsave("08_regional_incidence_vs_coverage.png", p_overlay, width = 9, height = 6, dpi = 300)
+# ggsave("10_regional_incidence_vs_coverage.png", p_overlay, width = 9, height = 6, dpi = 300)
 ```
 
 # Outputs
@@ -476,6 +556,8 @@ p_overlay
 -   03_region_heatmap.png\
 -   04_top10_countries_bar.png\
 -   05_top10_countries_heatmap.png\
--   06_dropout_region_trend.png\
--   07_incidence_vs_mcv2.png\
--   08_regional_incidence_vs_coverage.png\
+-   06_labregion_measles_plot.png\
+-   07_labcountry_measles_plot.png\
+-   08_dropout_region_trend.png\
+-   09_incidence_vs_mcv2.png\
+-   10_regional_incidence_vs_coverage.png\
